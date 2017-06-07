@@ -79,10 +79,28 @@ class DecisionTreeLeaf
 
         if ($this->isContinuous) {
             $op = $this->operator;
-            $value= $this->numericValue;
+            $value = $this->numericValue;
+            if (is_null($recordField)) {
+                return false;
+            }
             $recordField = strval($recordField);
-            eval("\$result = $recordField $op $value;");
-            return $result;
+            switch ($op) {
+                case '>=':
+                    return ($recordField >= $value);
+                case '<=':
+                    return ($recordField <= $value);
+                case '>':
+                    return ($recordField > $value);
+                case '<':
+                    return ($recordField < $value);
+                case '==':
+                case '=':
+                    return ($recordField == $value);
+                default:
+                    eval("\$result = $recordField $op $value;");
+
+                    return $result;
+            }
         }
         
         return $recordField == $this->value;

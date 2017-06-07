@@ -41,10 +41,27 @@ class DecisionTreeTest extends TestCase
         return [$input, $targets];
     }
 
-    public function testPredictSingleSample()
+    public function dataPredictSingleSample()
+    {
+        return [[false], [true]];
+    }
+
+    /**
+     * @param boolean $add_null_column
+     *
+     * @return DecisionTree
+     *
+     * @dataProvider dataPredictSingleSample
+     */
+    public function testPredictSingleSample($add_null_column)
     {
         list($data, $targets) = $this->getData($this->data);
         $classifier = new DecisionTree(5);
+        if ($add_null_column) {
+            foreach ($data as &$datum) {
+                $datum[] = null;
+            }
+        }
         $classifier->train($data, $targets);
         $this->assertEquals('Dont_play', $classifier->predict(['sunny', 78, 72, 'false']));
         $this->assertEquals('Play', $classifier->predict(['overcast', 60, 60, 'false']));
@@ -81,6 +98,99 @@ class DecisionTreeTest extends TestCase
         list($data, $targets) = $this->getData($this->data);
         $classifier = new DecisionTree(5);
         $classifier->train($data, $targets);
-        $this->assertTrue(5 >= $classifier->actualDepth);
+        $this->assertLessThanOrEqual(5, $classifier->actualDepth);
+    }
+
+    function dataIsCategoricalColumn()
+    {
+        $data = [];
+        $data[] = [
+            ['dic1', 1, 2, 3, 100, 10000],
+            true,
+        ];
+        $data[] = [
+            [1.5, 1, 2, 3, 100, 10000],
+            false,
+        ];
+        $data[] = [
+            ['dic1', 1, 2, 3, 100, 10000, null],
+            true,
+        ];
+        $data[] = [
+            [1.5, 1, 2, 3, 100, 10000, null],
+            false,
+        ];
+        $data[] = [
+            [1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3,
+             100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100,
+             10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000,
+             1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3,
+             100, 10000, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null,],
+            true,
+        ];
+        $data[] = [
+            [1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3,
+             100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100,
+             10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000,
+             1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3, 100, 10000, 1, 2, 3,
+             100, 10000],
+            true,
+        ];
+
+        return $data;
+    }
+
+    /**
+     * @param array   $value
+     * @param boolean $expected
+     *
+     * @dataProvider dataIsCategoricalColumn
+     */
+    function testIsCategoricalColumn(array $value, $expected)
+    {
+        $reflection = new \ReflectionMethod('\\Phpml\\Classification\\DecisionTree', 'isCategoricalColumn');
+        $reflection->setAccessible(true);
+        $this->assertEquals($expected, $reflection->invoke(null, $value));
+    }
+
+    function testGetterSetterTypes()
+    {
+        $data = [
+            [0, 1, 2, 3, 4, 5, 6],
+            [0, 1, 2, 3, 4, 5, 6],
+            ['dic1', 1, 2, 3, 4, 5, 6],
+            ['dic1', 1, 2, 3, null, 5, 6,],
+        ];
+        $new_data = [];
+        for ($j = 0; $j < count($data[0]); $j++) {
+            $new_data[] = array_fill(0, count($data), 0);
+        }
+        for ($i = 0; $i < count($data); $i++) {
+            for ($j = 0; $j < count($data[0]); $j++) {
+                $new_data[$j][$i] = $data[$i][$j];
+            }
+        }
+        unset($i, $j, $data);
+        $types = [
+            DecisionTree::CONTINUOUS,
+            DecisionTree::NOMINAL,
+            DecisionTree::NOMINAL,
+            DecisionTree::NOMINAL,
+        ];
+        $types_input = [
+            DecisionTree::CONTINUOUS,
+            DecisionTree::NOMINAL,
+            null,
+            DecisionTree::NOMINAL,
+        ];
+        $classifier = new DecisionTree();
+        $classifier->setInstanceColumnTypes($types_input);
+
+        $actual = $classifier->getInstanceColumnTypes();
+        $this->assertEquals($types_input, $actual);
+
+        $classifier->train($new_data, range(1, count($new_data)));
+        $actual = $classifier->getInstanceColumnTypes();
+        $this->assertEquals($types, $actual);
     }
 }

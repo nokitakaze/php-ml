@@ -22,6 +22,11 @@
     "require-dev": {
         "phpunit/phpunit": "^6.0"
     },
+    "scripts": {
+        "tests-all": "bin/phpunit",
+        "tests-main": "bin/phpunit --testsuite \"PHP-ML Test Suite\"",
+        "tests-suite-classification--decision-tree-test": "bin/phpunit --testsuite \"Classification Decision Tree Test\""
+    },
     "config": {
         "bin-dir": "bin"
     }
