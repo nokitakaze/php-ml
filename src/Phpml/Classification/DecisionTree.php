@@ -220,7 +220,7 @@ class DecisionTree implements Classifier
                     $colValues[$index] = $row[$i];
                 }
             }
-            $counts = self::arrayCountValues($colValues);
+            $counts = array_count_values($colValues);
             arsort($counts);
             $baseValue = key($counts);
             $gini = $this->getGiniIndex($baseValue, $colValues, $targets);
@@ -362,6 +362,7 @@ class DecisionTree implements Classifier
      */
     protected static function isCategoricalColumn(array $columnValues) : bool
     {
+        $columnValues = array_filter($columnValues, function ($value) { return !is_null($value); }); // Filtering null values out
         $count = count($columnValues);
 
         // There are two main indicators that *may* show whether a
@@ -371,18 +372,17 @@ class DecisionTree implements Classifier
         //	  all values in that column (Lower than or equal to %20 of all values)
         $numericValues = array_filter($columnValues, 'is_numeric');
         $floatValues = array_filter($columnValues, 'is_float');
-        $nullCount = count(array_filter($columnValues, 'is_null'));
         if (!empty($floatValues)) {
             return false;
         }
 
-        if (count($numericValues) !== $count - $nullCount) {
+        if (count($numericValues) !== $count) {
             return true;
         }
 
         $distinctValuesCount = count(self::arrayCountValues($columnValues));
 
-        return $distinctValuesCount <= ($count - $nullCount) * self::$categoricalColumnMinimumUniqueValueCount;
+        return $distinctValuesCount <= $count * self::$categoricalColumnMinimumUniqueValueCount;
     }
 
     /**

@@ -474,7 +474,7 @@ class DecisionTreeTest extends TestCase
     public function dataMultipleSingleSample()
     {
         $data = [];
-        for ($i = 0; ($i < 10000) and (count($data) < 0); $i++) {
+        for ($i = 0; ($i < 10000) and (count($data) < 0); $i++) {// @todo поправить
             $datum = $this->generateSingleSampleForMultiple();
             $column = array_count_values(array_column($datum[0], count($datum[0][0]) - 1));
             if (count($column) > 2) {
@@ -484,8 +484,9 @@ class DecisionTreeTest extends TestCase
                 $data[] = $datum;
             }
         }
+        //
         $num = count($data);
-        for ($i = 0; ($i < 10000) and (count($data) - $num < 0); $i++) {
+        for ($i = 0; ($i < 10000) and (count($data) - $num < 0); $i++) {// @todo поправить
             $datum = $this->generateSingleSparseSampleForMultiple();
             $column = array_count_values(array_column($datum[0], count($datum[0][0]) - 1));
             if (count($column) > 2) {
@@ -494,8 +495,9 @@ class DecisionTreeTest extends TestCase
                 $data[] = $datum;
             }
         }
+        //
         $num = count($data);
-        for ($i = 0; ($i < 10000) and (count($data) - $num < 0); $i++) {
+        for ($i = 0; ($i < 10000) and (count($data) - $num < 0); $i++) {// @todo поправить
             $datum = $this->generateSingleSparseSampleForMultiple(0.9, [3, 3]);
             $column = array_count_values(array_column($datum[0], count($datum[0][0]) - 1));
             if (count($column) > 2) {
@@ -504,27 +506,56 @@ class DecisionTreeTest extends TestCase
                 $data[] = $datum;
             }
         }
+        //
         $num = count($data);
-        for ($i = 0; count($data) - $num < 20; $i++) {
+        for ($i = 0; count($data) - $num < 0; $i++) {// @todo поправить
             $datum = $this->dataTriangle();
             $datum[] = 0.9;
             $datum[] = 0.95;
             $data[] = $datum;
         }
+        //
         for ($additional_circle_count = 0; $additional_circle_count < 5; $additional_circle_count++) {
             $num = count($data);
-            for ($i = 0; ($i < 10000) and (count($data) - $num < 5); $i++) {
+            for ($i = 0; ($i < 10000) and (count($data) - $num < 0); $i++) {// @todo поправить
                 $datum = $this->dataCircle($additional_circle_count);
                 if (is_null($datum)) {
                     continue;
                 }
                 $values = array_count_values(array_column($datum[0], 2));
                 ksort($values);
+                if (!isset($values[0], $values[1])) {
+                    continue;
+                }
                 if (($values[1] < 0.05 * count($datum[0])) and ($values[1] < 100)) {
                     continue;
                 }
                 $datum[] = 0.9;
                 $datum[] = 0.95;
+                $data[] = $datum;
+            }
+        }
+        //
+        for ($dimension_number = 3; $dimension_number < 8; $dimension_number++) {
+            $num = count($data);
+            for ($i = 0; ($i < 10000) and (count($data) - $num < 5); $i++) {
+                $datum = $this->dataNDimensionSpheres($dimension_number);
+                if (is_null($datum)) {
+                    continue;
+                }
+                $values = array_count_values(array_column($datum[0], $dimension_number));
+                ksort($values);
+                if (!isset($values[0], $values[1])) {
+                    continue;
+                }
+                if (
+                    (($values[1] < 0.05 * count($datum[0])) and ($values[1] < 100)) or
+                    (($values[0] < 0.05 * count($datum[0])) and ($values[0] < 100))
+                ) {
+                    continue;
+                }
+                $datum[] = 0.8;
+                $datum[] = 0.9;
                 $data[] = $datum;
             }
         }
@@ -592,6 +623,10 @@ class DecisionTreeTest extends TestCase
             $classifier->setInstanceColumnTypes($input_types);
         }
         $classifier->train($end_input, $end_output);
+        if (!file_exists(__DIR__.'/../../php-ml-tests/')) {
+            mkdir(__DIR__.'/../../php-ml-tests/');
+        }
+        file_put_contents(__DIR__.'/../../php-ml-tests/tree-'.microtime(true).'.html', $classifier->getHtml(), LOCK_EX);
 
         $predicted = $classifier->predict($end_input_test);
         $success = 0;
@@ -757,6 +792,60 @@ class DecisionTreeTest extends TestCase
         }
 
         return [$data, 2, [DecisionTree::CONTINUOUS, DecisionTree::CONTINUOUS]];
+    }
+
+    /**
+     * Populate N-dimension spheres
+     *
+     * @param $dimension_number
+     * @return array
+     */
+    public function dataNDimensionSpheres($dimension_number) {
+        // Generate values for output field: dic0, dic1, dic2,.. and then shuffle it
+        $output_dictionary = range(0, mt_rand(3, 10));
+        array_walk($output_dictionary, function (&$a) {
+            $a = 'dic'.$a;
+        });
+        shuffle($output_dictionary);
+
+        //
+        $spheres = [];
+        $sphere_count = mt_rand(2, 10);
+        for ($i = 0; $i < $sphere_count; $i++) {
+            $sphere = [mt_rand(10, 10000) * 0.001];
+            for ($j = 0; $j < $dimension_number; $j++) {
+                $sphere[] = mt_rand(-10000, 10000) * 0.001;
+            }
+            $spheres[] = $sphere;
+        }
+
+        $closure = function ($input) use (&$spheres) {
+            $dimension_number = count($input);
+            $dimension_number_r = 1 / $dimension_number;
+            foreach ($spheres as &$sphere) {
+                $r = 0;
+                foreach ($input as $num => $value) {
+                    $r += pow(pow($sphere[$num + 1] - $value, 2), $dimension_number_r);
+                }
+                if ($r <= $sphere[0]) {
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        $data = [];
+        for ($i = 0; $i < 20000; $i++) {
+            $input = [];
+            for ($j = 0; $j < $dimension_number; $j++) {
+                $input[] = mt_rand(-10000, 20000) * 0.001;
+            }
+
+            $data[] = array_merge($input, [$closure($input) ? 1 : 0]);
+        }
+
+        return [$data, $dimension_number, array_fill(0, $dimension_number, DecisionTree::CONTINUOUS)];
     }
 
     public function testNyan() {
