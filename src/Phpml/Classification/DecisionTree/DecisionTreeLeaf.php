@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Phpml\Classification\DecisionTree;
 
+use Phpml\Exception\InvalidArgumentException;
+
 class DecisionTreeLeaf
 {
     /**
@@ -72,6 +74,7 @@ class DecisionTreeLeaf
     /**
      * @param array $record
      * @return bool
+     * @throws InvalidArgumentException
      */
     public function evaluate($record)
     {
@@ -79,10 +82,26 @@ class DecisionTreeLeaf
 
         if ($this->isContinuous) {
             $op = $this->operator;
-            $value= $this->numericValue;
+            $value = $this->numericValue;
+            if (is_null($recordField)) {
+                return false;
+            }
             $recordField = strval($recordField);
-            eval("\$result = $recordField $op $value;");
-            return $result;
+            switch ($op) {
+                case '>=':
+                    return ($recordField >= $value);
+                case '<=':
+                    return ($recordField <= $value);
+                case '>':
+                    return ($recordField > $value);
+                case '<':
+                    return ($recordField < $value);
+                case '==':
+                case '=':
+                    return ($recordField == $value);
+                default:
+                    throw new InvalidArgumentException('Malformed operator: '.$op);
+            }
         }
         
         return $recordField == $this->value;

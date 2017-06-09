@@ -8,7 +8,10 @@
 >
     <testsuites>
         <testsuite name="PHP-ML Test Suite">
-            <directory>tests/*</directory>
+            <directory>tests/Phpml/*</directory>
+        </testsuite>
+        <testsuite name="Classification Decision Tree Test">
+            <directory>tests/suites/Classification/DecisionTreeTest.php</directory>
         </testsuite>
     </testsuites>​
 

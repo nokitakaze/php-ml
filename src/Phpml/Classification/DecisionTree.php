@@ -20,7 +20,7 @@ class DecisionTree implements Classifier
     /**
      * @var array
      */
-    protected $columnTypes;
+    protected $columnTypes = [];
 
     /**
      * @var array
@@ -41,6 +41,8 @@ class DecisionTree implements Classifier
      * @var int
      */
     protected $maxDepth;
+
+    public static $categoricalColumnMinimumUniqueValueCount = 0.2;
 
     /**
      * @var int
@@ -86,7 +88,16 @@ class DecisionTree implements Classifier
         $this->targets = array_merge($this->targets, $targets);
 
         $this->featureCount = count($this->samples[0]);
-        $this->columnTypes = self::getColumnTypes($this->samples);
+        if (count($this->columnTypes) != $this->featureCount) {
+            $this->columnTypes = self::getColumnTypes($this->samples);
+        } elseif (count(array_filter($this->columnTypes, 'is_null')) > 0) {
+            foreach (self::getColumnTypes($this->samples) as $key => $value) {
+                if (is_null($this->columnTypes[$key])) {
+                    $this->columnTypes[$key] = $value;
+                }
+            }
+            unset($key, $value);
+        }
         $this->labels = array_keys(array_count_values($this->targets));
         $this->tree = $this->getSplitLeaf(range(0, count($this->samples) - 1));
 
@@ -192,7 +203,7 @@ class DecisionTree implements Classifier
     /**
      * @param array $records
      *
-     * @return DecisionTreeLeaf
+     * @return DecisionTreeLeaf|null
      */
     protected function getBestSplit(array $records) : DecisionTreeLeaf
     {
@@ -205,13 +216,15 @@ class DecisionTree implements Classifier
         foreach ($features as $i) {
             $colValues = [];
             foreach ($samples as $index => $row) {
-                $colValues[$index] = $row[$i];
+                if (!is_null($row[$i])) {
+                    $colValues[$index] = $row[$i];
+                }
             }
             $counts = array_count_values($colValues);
             arsort($counts);
             $baseValue = key($counts);
             $gini = $this->getGiniIndex($baseValue, $colValues, $targets);
-            if ($bestSplit === null || $bestGiniVal > $gini) {
+            if (($bestSplit === null) || ($bestGiniVal > $gini)) {
                 $split = new DecisionTreeLeaf();
                 $split->value = $baseValue;
                 $split->giniIndex = $gini;
@@ -283,6 +296,9 @@ class DecisionTree implements Classifier
      */
     public function getGiniIndex($baseValue, array $colValues, array $targets) : float
     {
+        if (empty($colValues)) {
+            return 1;
+        }
         $countMatrix = [];
         foreach ($this->labels as $label) {
             $countMatrix[$label] = [0, 0];
@@ -346,6 +362,7 @@ class DecisionTree implements Classifier
      */
     protected static function isCategoricalColumn(array $columnValues) : bool
     {
+        $columnValues = array_filter($columnValues); // Filtering out null values
         $count = count($columnValues);
 
         // There are two main indicators that *may* show whether a
@@ -355,7 +372,7 @@ class DecisionTree implements Classifier
         //	  all values in that column (Lower than or equal to %20 of all values)
         $numericValues = array_filter($columnValues, 'is_numeric');
         $floatValues = array_filter($columnValues, 'is_float');
-        if ($floatValues) {
+        if (!empty($floatValues)) {
             return false;
         }
 
@@ -363,9 +380,9 @@ class DecisionTree implements Classifier
             return true;
         }
 
-        $distinctValues = array_count_values($columnValues);
+        $distinctValuesCount = count(self::arrayCountValues($columnValues));
 
-        return count($distinctValues) <= $count / 5;
+        return $distinctValuesCount <= $count * self::$categoricalColumnMinimumUniqueValueCount;
     }
 
     /**
@@ -525,5 +542,35 @@ class DecisionTree implements Classifier
         } while ($node);
 
         return $node ? $node->classValue : $this->labels[0];
+    }
+
+    /**
+     * @return integer[]|null[]
+     */
+    public function getInstanceColumnTypes() {
+        return $this->columnTypes;
+    }
+
+    /**
+     * @param integer[]|null[] $columnTypes
+     */
+    public function setInstanceColumnTypes(array $columnTypes) {
+        $this->columnTypes = $columnTypes;
+    }
+
+    /**
+     * @param array $values
+     *
+     * @return array
+     */
+    protected static function arrayCountValues(array $values) {
+        $raw = [];
+        foreach ($values as &$value) {
+            if (!is_null($value) and !is_float($value)) {
+                $raw[] = $value;
+            }
+        }
+
+        return array_count_values($raw);
     }
 }

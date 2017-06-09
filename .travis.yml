@@ -26,4 +26,4 @@ install:
   - php composer.phar install --dev --no-interaction --ignore-platform-reqs
 
 script:
-  - bin/phpunit
+  - php composer.phar tests-main
